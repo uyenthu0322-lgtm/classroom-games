@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<title>Tilt Head Classroom Game</title>
+
+<style>
+
+body{
+font-family:Arial;
+background:#eef4ff;
+text-align:center;
+}
+
+h1{
+margin-top:20px;
+}
+
+.scoreBoard{
+
+font-size:40px;
+font-weight:bold;
+margin-top:10px;
+color:#333;
+
+}
+
+.question{
+font-size:36px;
+margin-top:20px;
+}
+
+.game{
+display:flex;
+justify-content:center;
+align-items:center;
+gap:30px;
+margin-top:20px;
+}
+
+.choice{
+width:200px;
+height:250px;
+border-radius:20px;
+display:flex;
+flex-direction:column;
+justify-content:center;
+align-items:center;
+font-size:28px;
+font-weight:bold;
+transition:0.3s;
+}
+
+.falseBox{
+background:#ffd6d6;
+}
+
+.trueBox{
+background:#c8f7c5;
+}
+
+.active{
+transform:scale(1.1);
+box-shadow:0 0 20px rgba(0,0,0,0.3);
+}
+
+.choice span{
+font-size:80px;
+}
+
+video{
+width:420px;
+border-radius:15px;
+transform:scaleX(-1);
+}
+
+.result{
+font-size:40px;
+margin-top:15px;
+}
+
+button{
+font-size:20px;
+padding:10px 20px;
+margin-top:20px;
+cursor:pointer;
+margin-right:10px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h1>Tilt Your Head!</h1>
+
+<div class="scoreBoard">
+Score: <span id="score">0</span>
+</div>
+
+<div class="question" id="question"></div>
+
+<div class="game">
+
+<div class="choice falseBox" id="falseBox">
+<span>❌</span>
+FALSE
+</div>
+
+<video id="video" autoplay muted></video>
+
+<div class="choice trueBox" id="trueBox">
+<span>✅</span>
+TRUE
+</div>
+
+</div>
+
+<div class="result" id="result"></div>
+
+<button onclick="nextQuestion()">Next Question</button>
+<button onclick="resetScore()">Reset Score</button>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
+<script>
+
+let score=0
+
+const questions=[
+
+{q:"This is a banana 🍌",a:true},
+{q:"This is a pear 🍐",a:true},
+{q:"This is a cookie 🍌",a:false},
+{q:"K is for kite",a:true},
+{q:"M is for banana",a:false},
+{q:"L is for lion",a:true},
+{q:"7 + 1 = 8",a:true},
+{q:"6 + 2 = 10",a:false}
+
+]
+
+let current=null
+let lastAnswerTime=0
+
+function nextQuestion(){
+
+current=questions[Math.floor(Math.random()*questions.length)]
+
+document.getElementById("question").innerText=current.q
+document.getElementById("result").innerText=""
+
+}
+
+nextQuestion()
+
+function updateScore(){
+
+document.getElementById("score").innerText=score
+
+}
+
+function resetScore(){
+
+score=0
+updateScore()
+
+}
+
+const video=document.getElementById("video")
+
+const faceMesh=new FaceMesh({
+
+locateFile:(file)=>{
+return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+}
+
+})
+
+faceMesh.setOptions({
+
+maxNumFaces:1,
+refineLandmarks:true,
+minDetectionConfidence:0.5,
+minTrackingConfidence:0.5
+
+})
+
+faceMesh.onResults(results=>{
+
+if(!results.multiFaceLandmarks.length) return
+
+const face=results.multiFaceLandmarks[0]
+
+const leftEye=face[33]
+const rightEye=face[263]
+
+const tilt=leftEye.y-rightEye.y
+
+if(Date.now()-lastAnswerTime<2000) return
+
+if(tilt>0.06){
+
+activateBox("true")
+checkAnswer(true)
+lastAnswerTime=Date.now()
+
+}
+
+if(tilt<-0.06){
+
+activateBox("false")
+checkAnswer(false)
+lastAnswerTime=Date.now()
+
+}
+
+})
+
+function activateBox(type){
+
+document.getElementById("trueBox").classList.remove("active")
+document.getElementById("falseBox").classList.remove("active")
+
+if(type==="true"){
+document.getElementById("trueBox").classList.add("active")
+}
+
+if(type==="false"){
+document.getElementById("falseBox").classList.add("active")
+}
+
+}
+
+const camera=new Camera(video,{
+
+onFrame:async()=>{
+await faceMesh.send({image:video})
+},
+
+width:420,
+height:320
+
+})
+
+camera.start()
+
+function checkAnswer(answer){
+
+if(answer===current.a){
+
+document.getElementById("result").innerText="✅ Correct!"
+
+score++
+
+updateScore()
+
+}else{
+
+document.getElementById("result").innerText="❌ Try again!"
+
+}
+
+}
+
+</script>
+
+</body>
+</html>
